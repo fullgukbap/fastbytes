@@ -11,8 +11,8 @@ const (
 )
 
 var (
-	once     sync.Once
-	instance *database = nil
+	boltOnce     sync.Once
+	boltInstance *database = nil
 )
 
 type database struct {
@@ -20,18 +20,18 @@ type database struct {
 }
 
 func DB() *database {
-	if instance == nil {
-		once.Do(func() {
+	if boltInstance == nil {
+		boltOnce.Do(func() {
 			db, err := bolt.Open("pair.db", 0600, nil)
 			if err != nil {
 				panic("do not open bolt database")
 			}
 
-			instance = &database{
+			boltInstance = &database{
 				bolt: db,
 			}
 
-			err = instance.bolt.Update(func(tx *bolt.Tx) error {
+			err = boltInstance.bolt.Update(func(tx *bolt.Tx) error {
 
 				_, err := tx.CreateBucketIfNotExists([]byte(ExtensionBucket))
 				return err
@@ -43,11 +43,11 @@ func DB() *database {
 		})
 	}
 
-	return instance
+	return boltInstance
 }
 
 func (d *database) Close() error {
-	return instance.bolt.Close()
+	return boltInstance.bolt.Close()
 }
 
 func (d *database) SaveExtendsion(uuid string, extension string) error {

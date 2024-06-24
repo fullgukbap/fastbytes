@@ -13,6 +13,7 @@ import (
 	"github.com/chai2010/webp"
 	"github.com/fasthttp/router"
 	"github.com/nfnt/resize"
+	"github.com/patrickmn/go-cache"
 	"github.com/valyala/fasthttp"
 )
 
@@ -43,6 +44,13 @@ func findImage(ctx *fasthttp.RequestCtx) {
 	width := utils.CleanUp(ctx.QueryArgs().Peek("width"))
 	height := utils.CleanUp(ctx.QueryArgs().Peek("height"))
 
+	// try cache
+	if image, found := storage.Cache().Get(uuid); found {
+		buf := image.(*bytes.Buffer)
+		utils.ResponseImage(ctx, buf)
+		return
+	}
+
 	image, err := storage.FindImage(uuid)
 	if err != nil {
 		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
@@ -70,9 +78,12 @@ func findImage(ctx *fasthttp.RequestCtx) {
 
 	var buf bytes.Buffer
 	webp.Encode(&buf, image, &webp.Options{Quality: 100})
-	ctx.SetContentType("image/webp")
-	ctx.Write(buf.Bytes())
 
+	// save
+	storage.Cache().Set(uuid, &buf, cache.DefaultExpiration)
+
+	// response
+	utils.ResponseImage(ctx, &buf)
 }
 
 func main() {
